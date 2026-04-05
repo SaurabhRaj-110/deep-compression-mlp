@@ -24,7 +24,7 @@ def count_unique_weights(model):
     return len(unique_vals)
 
 
-def detailed_sparsity_report(model):
+def detailed_sparsity(model):
     total = 0
     zero = 0
 
@@ -34,38 +34,38 @@ def detailed_sparsity_report(model):
             zero += (module.mask == 0).sum().item()
 
     active = total - zero
+    sparsity = 100 * zero / total
 
-    print("--- PRUNING REPORT ---")
+    print("--- SPARSITY REPORT ---")
     print(f"Total Weights:  {total:,}")
     print(f"Active Weights: {active:,}")
     print(f"Zeroed Weights: {zero:,}")
-    print(f"Sparsity:       {100*zero/total:.2f}%")
+    print(f"Sparsity:       {sparsity:.2f}%")
+
+    return sparsity  
 
 
-
-def quantization_report(model):
-    print("\n--- QUANTIZATION STATS ---")
+def quantization_stats(model):
+    print("--- QUANTIZATION STATS ---")
 
     for name, module in model.named_modules():
         if hasattr(module, "weight"):
             weights = module.weight.data.cpu().numpy().flatten()
+
             unique_vals = len(set(weights))
+            zeros = (weights == 0).sum()
 
-            zero_mask = 1 if hasattr(module, "mask") else 0
+            print(f"Layer '{name}': {unique_vals} unique active weights + {1 if zeros>0 else 0} zero-mask")
 
-            print(f"Layer '{name}': {unique_vals} unique active weights + {zero_mask} zero-mask")
-
-    print("--------------------------\n")
+    print("--------------------------")
 
 
-def calculate_storage(model, bits=32):
+
+def compute_storage(model, bits=32):
     total_params = 0
 
-    for module in model.modules():
-        if hasattr(module, "weight"):
-            total_params += module.weight.numel()
+    for p in model.parameters():
+        total_params += p.numel()
 
-    total_bits = total_params * bits
-    total_mb = total_bits / (8 * 1024 * 1024)
-
-    return total_mb
+    size_mb = (total_params * bits) / (8 * 1024 * 1024)
+    return size_mb

@@ -1,47 +1,37 @@
+def apply_huffman_to_npz(npz_path):
+    import numpy as np
+    from collections import Counter
+    from compression.huffman import build_huffman_tree
 
-def print_huffman_snippet(freq, codebook, top_k=5):
-    print("\n   --- HUFFMAN DICTIONARY (Snippet) ---")
+    data = np.load(npz_path)
 
-    sorted_items = sorted(freq.items(), key=lambda x: -x[1])
+    print("\n[*] Applying Huffman Encoding...\n")
 
+    all_values = []
+
+    for key in data:
+        all_values.extend(data[key].flatten())
+
+    freq = Counter(all_values)
+    codebook = build_huffman_tree(freq)
+
+    print("   --- HUFFMAN DICTIONARY (Snippet) ---")
     print(f"   [-] Unique Weight Clusters: {len(freq)}")
 
-    for val, f in sorted_items[:top_k]:
+    # print top 5 frequent
+    top = sorted(freq.items(), key=lambda x: -x[1])[:5]
+
+    for val, f in top:
         code = codebook[val]
         print(f"   [-] Value: {val:>8.4f} | Freq: {f:>7} | Huffman Code: {code} ({len(code)} bits)")
 
     print("   [-] ... (and so on)")
-    print("   ------------------------------------\n")
+    print("   ------------------------------------")
 
+    # compute compression
+    total_bits = sum(freq[v] * len(codebook[v]) for v in freq)
+    original_bits = len(all_values) * 32
 
-from collections import Counter
+    ratio = original_bits / total_bits
 
-def apply_huffman_to_npz(npz_path):
-    import numpy as np
-    data = np.load(npz_path)
-
-    total_bits = 0
-    total_original_bits = 0
-
-    combined = []
-
-    for key in data:
-        arr = data[key]
-        combined.extend(arr.flatten().tolist())
-
-    freq = Counter(combined)
-
-    from compression.huffman import build_huffman_tree
-    codebook = build_huffman_tree(freq)
-
-    encoded_bits = sum(len(codebook[val]) * count for val, count in freq.items())
-    total_bits = encoded_bits
-    total_original_bits = len(combined) * 32
-
-    print_huffman_snippet(freq, codebook)
-
-    compressed_mb = total_bits / (8 * 1024 * 1024)
-    original_mb = total_original_bits / (8 * 1024 * 1024)
-
-    print(f"   [-] Huffman Encoded Size: {compressed_mb:.4f} MB")
-    print(f"   [-] Compression Ratio: {original_mb/compressed_mb:.2f}x")
+    return ratio, total_bits / 8 / (1024*1024)
